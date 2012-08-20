@@ -15,6 +15,7 @@ use POSIX qw(:signal_h);
 my $log_file_pattern = "/var/log/httpd-*-access.log";
 my $carbon_host = 'graphite';
 my $carbon_port = '2023';
+my $metric_prefix = 'nginx';
 my $timeout = 5;
 my $DEBUG=0;
 
@@ -190,20 +191,20 @@ sub send_metrics {
 	my $ts = time();
 
 	foreach $key (keys %metrics_sum) {
-		while (!$carbon_socket->send("prod-balancer.nginx." . $key . " " . $metrics_sum{$key} . " " . $ts . "\n")) {
+		while (!$carbon_socket->send($metric_prefix . "." . $key . " " . $metrics_sum{$key} . " " . $ts . "\n")) {
 			debug(0, "connection to carbon failed, retrying in one second...");
 			sleep 1;
 			carbon_connect($carbon_host, $carbon_port);
 		}
-		debug(10, "prod-balancer.nginx." . $key . " " . $metrics_sum{$key} . " " . $ts);
+		debug(10, $metric_prefix . "." . $key . " " . $metrics_sum{$key} . " " . $ts);
 	}
 	foreach $key (keys %metrics_avg) {
-		while (!$carbon_socket->send("prod-balancer.nginx." .$key . " " . $metrics_avg{$key} / $metrics_avg_cnt{$key} . " " . $ts . "\n")) {
+		while (!$carbon_socket->send($metric_prefix . "." . $key . " " . $metrics_avg{$key} / $metrics_avg_cnt{$key} . " " . $ts . "\n")) {
 			debug(0, "connection to carbon failed, retrying in one second...");
 			sleep 1;
 			carbon_connect($carbon_host, $carbon_port);
 		}
-		debug(10, "prod-balancer.nginx." . $key . " " . $metrics_avg{$key} / $metrics_avg_cnt{$key} . " " . $ts);
+		debug(10, $metric_prefix . "." . $key . " " . $metrics_avg{$key} / $metrics_avg_cnt{$key} . " " . $ts);
 	}
 
 	undef(%metrics_avg);
