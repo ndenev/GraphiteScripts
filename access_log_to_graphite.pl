@@ -16,9 +16,9 @@ my $log_file_pattern = "/var/log/httpd-*-access.log";
 my $carbon_host = 'graphite';
 my $carbon_port = '2023';
 my $metric_prefix = 'nginx';
-my $timeout = 5;
+my $interval = 5;
 my $DEBUG=0;
-
+my $app_url_pattern = qr/.*/o;
 my $access_log_pattern = qr/^([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+) - (.*) \[(.*)\] ([A-Z]+\s.*\sHTTP\/[0-9]+\.[0-9]+|-|)\s+"([0-9]+)" ([0-9]+) "([^"]+)" "([^"]+)" "([^"]+)" "(.*):(.*)" \("([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+|-)" "([0-9]+|-)" "([0-9]+\.[0-9]+|-)"\) ([0-9]+\.[0-9]+)$/o;
 my $request_pattern = qr/^([A-Z]+) (.*) HTTP\/([0-9]+\.[0-9]+)$/o;
 my $upstream_pattern = qr/^([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+):([0-9]+)$/o;
@@ -55,7 +55,7 @@ sub main {
 	my $oss = POSIX::SigSet->new;
 
 	local $SIG{ALRM} = "cyclic";
-	alarm $timeout;
+	alarm $interval;
 
 	foreach (glob $log_file_pattern) {
 		debug(1, "opening $_...");
@@ -158,10 +158,13 @@ sub parse {
 		$metrics_avg{"requesttime.verb.${verb}"} += $requesttime;
 		$metrics_avg_cnt{"requesttime.verb.${verb}"}++;
 
-		# Stats per app url
-		if (($request =~ m/^\/app\/([a-zA-Z0-9\/\-_]+\.pl).*/) && ($http_resp != 404)) {
+		# Stats per application urls
+		if (($request =~ $app_url_pattern) && ($http_resp != 404)) {
 			$request = $1;
-			$request =~ s/\./_/g;
+			# Clean up chars used as graphite delimiters
+			$request =~ s/[\.\/]/_/g;
+			# Clean up GET requests data
+			$request =~ s/^\/(.*)\?.*/$1/g;
 			$metrics_sum{"bytes.url.app.${request}"} += $bytes;
 			$metrics_sum{"requests.url.app.${request}.total"}++;
 			$metrics_sum{"requests.url.app.${request}.http_response.${http_resp}"}++;
@@ -221,5 +224,5 @@ sub debug {
 
 sub cyclic {
 	send_metrics;
-	alarm $timeout;
+	alarm $interval;
 }
