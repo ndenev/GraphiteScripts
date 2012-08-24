@@ -13,19 +13,22 @@ use POSIX qw(:signal_h);
 ##########
 
 my $log_file_pattern = "/var/log/httpd-*-access.log";
-my $carbon_host = 'graphite';
-my $carbon_port = '2023';
-my $metric_prefix = 'nginx';
-my $interval = 5;
-my $DEBUG=0;
+
 my $app_url_pattern = qr/.*/o;
 my $access_log_pattern = qr/^([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+) - (.*) \[(.*)\] ([A-Z]+\s.*\sHTTP\/[0-9]+\.[0-9]+|-|)\s+"([0-9]+)" ([0-9]+) "([^"]+)" "([^"]+)" "([^"]+)" "(.*):(.*)" \("([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+|-)" "([0-9]+|-)" "([0-9]+\.[0-9]+|-)"\) ([0-9]+\.[0-9]+)$/o;
 my $request_pattern = qr/^([A-Z]+) (.*) HTTP\/([0-9]+\.[0-9]+)$/o;
 my $upstream_pattern = qr/^([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+):([0-9]+)$/o;
 
-##########
+my $carbon_host = 'carbon';
+my $carbon_port = '2013';
 
 my $hostname = hostname;
+$hostname =~ s/\./-/;
+my $metric_prefix = "nginx.${hostname}";
+my $interval = 5;
+my $DEBUG=10;
+
+##########
 
 my (%metrics_avg, %metrics_avg_cnt, %metrics_sum);
 
@@ -160,11 +163,11 @@ sub parse {
 
 		# Stats per application urls
 		if (($request =~ $app_url_pattern) && ($http_resp != 404)) {
-			$request = $1;
 			# Clean up chars used as graphite delimiters
-			$request =~ s/[\.\/]/_/g;
+			$request =~ s/\./_/g;
+			$request =~ s/^\///;
 			# Clean up GET requests data
-			$request =~ s/^\/(.*)\?.*/$1/g;
+			$request =~ s/^([^?]+)\?.*/$1/g;
 			$metrics_sum{"bytes.url.app.${request}"} += $bytes;
 			$metrics_sum{"requests.url.app.${request}.total"}++;
 			$metrics_sum{"requests.url.app.${request}.http_response.${http_resp}"}++;
