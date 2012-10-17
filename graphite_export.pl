@@ -61,6 +61,9 @@ while (1) {
 			$idx--;
 			next;
 		}
+		if (!$socket->connected) {
+			carbon_connect;
+		}
 		foreach $sysctlret (@sysctl) {
 			chomp($sysctlret);
 			($oid, $val) = split('=', $sysctlret);
